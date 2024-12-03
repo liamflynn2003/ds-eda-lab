@@ -17,10 +17,9 @@ export const handler: SNSHandler = async (event: SNSEvent): Promise<void> => {
       const { id, Caption, Date, Photographer } = message;
       const metadataType = event.Records[0].Sns.MessageAttributes["x-metadata-type"].Value;
   
-      // Prepare the update expression dynamically
       let updateExpression = "SET ";
       const expressionAttributeValues: Record<string, any> = {};
-      const expressionAttributeNames: Record<string, string> = {}; // For reserved keywords
+      const expressionAttributeNames: Record<string, string> = {};
   
       // Add the appropriate fields to the update expression if they exist
       if (Caption) {
