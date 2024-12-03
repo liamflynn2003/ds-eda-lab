@@ -90,20 +90,21 @@ export class EDAAppStack extends cdk.Stack {
       },
     });
 
+    const deleteImageFn = new NodejsFunction(this, "DeleteImageFn", {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/deleteImage.ts`,
+      timeout: cdk.Duration.seconds(15),
+      memorySize: 128,
+    });
+
     // S3 --> SQS
     imagesBucket.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new s3n.SnsDestination(newImageTopic)
     );
-
+    
     newImageTopic.addSubscription(
-      new subs.SqsSubscription(imageProcessQueue, {
-        filterPolicy: {
-          "x-metadata-type": sns.SubscriptionFilter.stringFilter({
-            allowlist: ["Caption", "Date", "Photographer"],
-          }),
-        },
-      })
+      new subs.SqsSubscription(imageProcessQueue)
     );
 
     newImageTopic.addSubscription(
@@ -146,6 +147,7 @@ export class EDAAppStack extends cdk.Stack {
 
     imagesTable.grantReadWriteData(updateImageMetadataFn)
     imagesTable.grantWriteData(processImageFn);
+    imagesTable.grantReadWriteData(deleteImageFn)
 
     // Role Policies
 
@@ -167,6 +169,14 @@ export class EDAAppStack extends cdk.Stack {
         resources: [badImageQueue.queueArn],
       })
     );
+    deleteImageFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["s3:DeleteObject"],
+        resources: [imagesBucket.arnForObjects("*")],
+      })
+    );
+
     rejectionMailerFn.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
