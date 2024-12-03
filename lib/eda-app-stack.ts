@@ -1,4 +1,4 @@
-import * as cdk from "aws-cdk-lib"; 
+import * as cdk from "aws-cdk-lib";
 import * as lambdanode from "aws-cdk-lib/aws-lambda-nodejs";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -70,12 +70,24 @@ export class EDAAppStack extends cdk.Stack {
       entry: `${__dirname}/../lambdas/confirmationMailer.ts`,
     });
 
-    const failedImageFn = new NodejsFunction(this, "FailedImageFn", {
+    const rejectionMailerFn = new NodejsFunction(this, "RejectionMailerFn", {
       architecture: lambda.Architecture.ARM_64,
       runtime: lambda.Runtime.NODEJS_16_X,
       entry: `${__dirname}/../lambdas/rejectionMailer.ts`,
       timeout: Duration.seconds(10),
       memorySize: 128,
+    });
+
+    const updateImageMetadataFn = new lambdanode.NodejsFunction(this, "UpdateImageMetadataFn", {
+      architecture: lambda.Architecture.ARM_64,
+      runtime: lambda.Runtime.NODEJS_18_X,
+      entry: `${__dirname}/../lambdas/updateImage.ts`,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      environment: {
+        TABLE_NAME: TABLE_NAME,
+        REGION: "eu-west-1",
+      },
     });
 
     // S3 --> SQS
@@ -88,10 +100,20 @@ export class EDAAppStack extends cdk.Stack {
       new subs.SqsSubscription(imageProcessQueue)
     );
 
+    newImageTopic.addSubscription(
+      new subs.LambdaSubscription(updateImageMetadataFn, {
+        filterPolicy: {
+          "x-metadata-type": sns.SubscriptionFilter.stringFilter({
+            allowlist: ["Caption", "Date", "Photographer"],
+          }),
+        },
+      })
+    );
+
     // Event Sources
 
     // Event source for bad image queue (failed image processing)
-    const failedImageEventSource = new events.SqsEventSource(badImageQueue, {
+    const rejectionMailerEventSource = new events.SqsEventSource(badImageQueue, {
       batchSize: 5,
       maxBatchingWindow: cdk.Duration.seconds(5),
     });
@@ -103,18 +125,24 @@ export class EDAAppStack extends cdk.Stack {
     });
 
     // SQS --> Lambda
-    
+
     processImageFn.addEventSource(new events.SqsEventSource(imageProcessQueue));
 
     // Trigger rejection email only if the image is moved to the DLQ
-    failedImageFn.addEventSource(failedImageEventSource);
+    rejectionMailerFn.addEventSource(rejectionMailerEventSource);
 
     // Trigger confirmation email only if image is successfully processed
     confirmationMailerFn.addEventSource(dynamoStreamEventSource);
 
     // Permissions
+
     imagesBucket.grantRead(processImageFn);
+
+    imagesTable.grantReadWriteData(updateImageMetadataFn)
     imagesTable.grantWriteData(processImageFn);
+
+    // Role Policies
+
     confirmationMailerFn.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -133,7 +161,7 @@ export class EDAAppStack extends cdk.Stack {
         resources: [badImageQueue.queueArn],
       })
     );
-    failedImageFn.addToRolePolicy(
+    rejectionMailerFn.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
