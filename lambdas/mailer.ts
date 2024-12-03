@@ -1,14 +1,14 @@
-import { SQSHandler } from "aws-lambda";
-import { SES_EMAIL_FROM, SES_EMAIL_TO, SES_REGION } from "../env";
+/* import { SQSHandler } from "aws-lambda";
+import { SES_EMAIL_FROM, SES_EMAIL_TO, REGION } from "../env";
 import {
   SESClient,
   SendEmailCommand,
   SendEmailCommandInput,
 } from "@aws-sdk/client-ses";
 
-if (!SES_EMAIL_TO || !SES_EMAIL_FROM || !SES_REGION) {
+if (!SES_EMAIL_TO || !SES_EMAIL_FROM || !REGION) {
   throw new Error(
-    "Please add the SES_EMAIL_TO, SES_EMAIL_FROM and SES_REGION environment variables in an env.js file located in the root directory"
+    "Please add the SES_EMAIL_TO, SES_EMAIL_FROM and REGION environment variables in an env.js file located in the root directory"
   );
 }
 
@@ -18,7 +18,7 @@ type ContactDetails = {
   message: string;
 };
 
-const client = new SESClient({ region: SES_REGION});
+const client = new SESClient({ region: REGION});
 
 export const handler: SQSHandler = async (event: any) => {
   console.log("Event ", JSON.stringify(event));
@@ -101,3 +101,4 @@ function getTextContent({ name, email, message }: ContactDetails) {
     ${message}
   `;
 }
+  */
