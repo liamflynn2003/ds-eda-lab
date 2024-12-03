@@ -97,7 +97,13 @@ export class EDAAppStack extends cdk.Stack {
     );
 
     newImageTopic.addSubscription(
-      new subs.SqsSubscription(imageProcessQueue)
+      new subs.SqsSubscription(imageProcessQueue, {
+        filterPolicy: {
+          "x-metadata-type": sns.SubscriptionFilter.stringFilter({
+            allowlist: ["Caption", "Date", "Photographer"],
+          }),
+        },
+      })
     );
 
     newImageTopic.addSubscription(
