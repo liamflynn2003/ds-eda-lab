@@ -8,13 +8,13 @@ __YouTube Demo link__ - (https://youtu.be/ZKa17Js8rDU)
 
 + Confirmation Mailer - Fully implemented.
 + Rejection Mailer - Fully implemented, triggered when an image is added to the DLQ.
-+ Process Image - Fully implemented log image within process image lmabda - adds images to the image table, and reroutes non jpg/jpeg/png files to the DLQ
++ Process Image - Fully implemented "Log Image" within process image lmabda - adds images to the image table, and reroutes non jpg/jpeg/png files to the DLQ
 
 ### Phase 2 (if relevant).
 
 + Confirmation Mailer - Fully implemented.
 + Rejection Mailer - Fully implemented 
-+ Process Image - Fully implemented "Log Image" within Process Image lmabda - adds images to the image table, and reroutes non jpg/jpeg/png files to the DLQ
++ Process Image - Fully implemented "Log Image" within Process Image lambda - adds images to the image table, and reroutes non jpg/jpeg/png files to the DLQ
 + Update Table -  Fully implemented.
 
 ### Phase 3 (if relevant).
