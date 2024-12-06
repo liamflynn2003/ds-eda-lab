@@ -12,7 +12,7 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Construct } from "constructs";
 import { Duration } from "aws-cdk-lib";
-import { TABLE_NAME } from "../env";
+import { TABLE_ARN, TABLE_NAME } from "../env";
 
 export class EDAAppStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -102,9 +102,15 @@ export class EDAAppStack extends cdk.Stack {
       s3.EventType.OBJECT_CREATED,
       new s3n.SnsDestination(newImageTopic)
     );
-    
+
     newImageTopic.addSubscription(
       new subs.SqsSubscription(imageProcessQueue)
+    );
+
+    // When a bucket object si removed, trigger deleteImageFn, which will delete the corresponding image from the dynamoDB table
+    imagesBucket.addEventNotification(
+      s3.EventType.OBJECT_REMOVED,
+      new s3n.LambdaDestination(deleteImageFn)
     );
 
     newImageTopic.addSubscription(
@@ -149,6 +155,12 @@ export class EDAAppStack extends cdk.Stack {
     imagesTable.grantWriteData(processImageFn);
     imagesTable.grantReadWriteData(deleteImageFn)
 
+    deleteImageFn.addPermission("S3InvokePermission", {
+      principal: new iam.ServicePrincipal("s3.amazonaws.com"),
+      sourceArn: imagesBucket.bucketArn,
+      action: "lambda:InvokeFunction",
+    });
+
     // Role Policies
 
     confirmationMailerFn.addToRolePolicy(
@@ -169,11 +181,13 @@ export class EDAAppStack extends cdk.Stack {
         resources: [badImageQueue.queueArn],
       })
     );
+
+    //Delete image needs perms to delete from dynamodb table
     deleteImageFn.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ["s3:DeleteObject"],
-        resources: [imagesBucket.arnForObjects("*")],
+        actions: ["dynamodb:DeleteItem"],
+        resources: [TABLE_ARN],
       })
     );
 

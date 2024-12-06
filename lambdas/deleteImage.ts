@@ -1,53 +1,35 @@
-/* eslint-disable import/extensions, import/no-absolute-path */
-import { SQSHandler } from "aws-lambda";
-import {
-  DeleteObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
+import { S3Event, S3Handler } from "aws-lambda";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, DeleteCommand } from "@aws-sdk/lib-dynamodb";
-import { REGION, TABLE_NAME } from 'env';
+import { REGION, TABLE_NAME } from "env";
 
-const s3 = new S3Client({ region: REGION });
 const dynamoDBClient = new DynamoDBClient({ region: REGION });
 const ddbDocClient = DynamoDBDocumentClient.from(dynamoDBClient);
 
-export const handler: SQSHandler = async (event) => {
-  console.log("Event ", JSON.stringify(event));
+export const handler: S3Handler = async (event: S3Event) => {
+  console.log("Event received: ", JSON.stringify(event));
 
-  for (const record of event.Records) {
-    const recordBody = JSON.parse(record.body);        // Parse SQS message
-    const snsMessage = JSON.parse(recordBody.Message); // Parse SNS message
+  try {
+    for (const record of event.Records) {
+      // Check for the S3 event details
+      if (record.s3 && record.s3.object) {
+        const srcBucket = record.s3.bucket.name;
+        const srcKey = record.s3.object.key;
 
-    if (snsMessage.Records) {
-      console.log("Record body ", JSON.stringify(snsMessage));
+        console.log(`S3 event - Bucket: ${srcBucket}, Key: ${srcKey}`);
 
-      for (const messageRecord of snsMessage.Records) {
-        const s3 = messageRecord.s3;
-        const srcBucket = s3.bucket.name;
-        // Object key may have spaces or unicode non-ASCII characters.
-        const srcKey = decodeURIComponent(s3.object.key.replace(/\+/g, " "));
-        console.log('srcKey: ', srcKey)
-        try {
-          // Delete the object from S3
-          await s3.send(new DeleteObjectCommand({
-            Bucket: srcBucket,
-            Key: srcKey
-          }));
-          console.log(`Deleted ${srcKey} from S3`);
-
-          // Delete the corresponding item from DynamoDB
-          const deleteCommand = new DeleteCommand({
-            TableName: TABLE_NAME,
-            Key: { id: srcKey },
-          });
-          await ddbDocClient.send(deleteCommand);
-          console.log(`Deleted item with id ${srcKey} from DynamoDB`);
-
-        } catch (error) {
-          console.log("Error deleting image:", error);
-        }
+        // Delete the corresponding item from DynamoDB
+        const deleteCommand = new DeleteCommand({
+          TableName: TABLE_NAME,
+          Key: { id: srcKey },
+        });
+        await ddbDocClient.send(deleteCommand);
+        console.log(`Successfully deleted item with id ${srcKey} from DynamoDB.`);
+      } else {
+        console.log("No S3 event data found.");
       }
     }
+  } catch (error) {
+    console.error("Error processing event:", error);
   }
 };

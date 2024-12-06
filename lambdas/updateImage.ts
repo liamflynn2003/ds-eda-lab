@@ -15,8 +15,7 @@ export const handler: SNSHandler = async (event: SNSEvent): Promise<void> => {
       const message = JSON.parse(snsMessage);
   
       const { id, Caption, Date, Photographer } = message;
-      const metadataType = event.Records[0].Sns.MessageAttributes["x-metadata-type"].Value;
-  
+
       let updateExpression = "SET ";
       const expressionAttributeValues: Record<string, any> = {};
       const expressionAttributeNames: Record<string, string> = {};
